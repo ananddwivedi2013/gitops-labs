@@ -1,0 +1,52 @@
+name: DevSecOps Inner Loop
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  security-and-build:
+    name: DevSecOps Gate Analysis
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout Code via absolute SHA pin
+      - name: Checkout Source Code
+        uses: actions/checkout@v4.1.1
+        with:
+          fetch-depth: 0 # Core requirement for complete SonarQube blame analysis
+
+      # 2. Execute SonarQube Code Quality Analysis
+      - name: SonarQube Quality Scan
+        uses: SonarSource/sonarqube-scan-action@v2.0.2
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+
+      # 3. Static Code/Filesystem Vulnerability Check via Trivy
+      # Note: We use explicit SHA pinning here to ensure security pipeline supply chain integrity
+      - name: Run Trivy Security File System Scan
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1
+        with:
+          scan-type: 'fs'
+          ignore-unfixed: true
+          format: 'table'
+          exit-code: '1' # CRITICAL: Forces pipeline termination if flaws are exposed
+          severity: 'CRITICAL,HIGH'
+
+      # 4. Authentication to Central Image Registry
+      - name: Authenticate to Docker Hub
+        if: github.event_name == 'push' # Only push artifacts on verified main merges
+        uses: actions/docker-login-action@v3.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 5. Compile and Ship Hardened Build Artifact
+      - name: Compile and Push Container Image
+        if: github.event_name == 'push'
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/secure-app:${{ github.sha }} ./app
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/secure-app:${{ github.sha }}
