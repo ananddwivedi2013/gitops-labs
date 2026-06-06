@@ -4,7 +4,7 @@ FROM python:3.11-alpine AS builder
 WORKDIR /build
 
 # Install dependencies into a localized wheelhouse folder
-COPY requirements.txt .
+COPY app/requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /build/wheels flask
 
 # --- Stage 2: Hardened Production Runtime ---
