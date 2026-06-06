@@ -39,7 +39,7 @@ jobs:
       # 4. Authentication to Central Image Registry
       - name: Authenticate to Docker Hub
         if: github.event_name == 'push' # Only push artifacts on verified main merges
-        uses: actions/docker-login-action@v3.0.0
+        uses: docker/login-action@v3.0.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
